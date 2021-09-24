@@ -1,0 +1,44 @@
+## Eclipse
+.project
+.metadata
+.classpath
+.settings/
+
+## IDEA
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# NetBeans
+nb-configuration.xml
+nbactions.xml
+
+# Java
+classes/
+target/
+BASE/
+BASE_AGRUPADA/
+*.class
+*.jar
+*.war
+*.ear
+
+.svn/
+
+# Sass
+.sass-cache
+/.tern-project
+flyway.properties
+/CAIXA DE ASSISTENCIA A SAUDE DOS EMPREGADOS DA CE37880952000157.cer
+/CAIXA DE ASSISTENCIA A SAUDE DOS EMPREGADOS DA CE37880952000157.pfx
+/cacerts
+
+ArquivosConfiguracao/
+
+ArquivosGerados/
+
+ArquivosRetornoConsulta/
+
+ArquivosRetorno/
+/.factorypath
