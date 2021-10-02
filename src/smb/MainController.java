@@ -49,8 +49,7 @@ public class MainController implements Initializable {
 			txtaConsole.setText("");
 
 			// Validation on input data
-			if (Utilitario.StringNullOuVaziaComTrim(txtServer.getText())
-					|| Utilitario.StringNullOuVaziaComTrim(txtUser.getText())
+			if (Utilitario.StringNullOuVaziaComTrim(txtServer.getText()) || Utilitario.StringNullOuVaziaComTrim(txtUser.getText())
 					|| Utilitario.StringNullOuVaziaComTrim(pswPassword.getText())) {
 				txtaConsole.setText("Parâmetros não preenchidos.\nTá de sacanagem, né? Tu não é usuário comum.");
 				return;
@@ -109,8 +108,7 @@ public class MainController implements Initializable {
 				return;
 			}
 
-			con = new ConexaoDiretaBanco(txtServer.getText(), cboxDatabase.getValue(), txtUser.getText(),
-					pswPassword.getText());
+			con = new ConexaoDiretaBanco(txtServer.getText(), cboxDatabase.getValue(), txtUser.getText(), pswPassword.getText());
 
 			// Initial feedback
 			String startDate = "\n\nInício - " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
@@ -129,9 +127,11 @@ public class MainController implements Initializable {
 			cboxDatabase.setDisable(true);
 
 		} catch (PadraoException e) {
-			txtaConsole.setText("Falha de conexão.\nVerifique os dados preenchidos.");
+			txtaConsole.setText(e.getMessage());
+			e.printStackTrace();
 		} catch (Exception e) {
-			// TODO: handle exception
+			txtaConsole.setText("Falha de conexão.\nVerifique os dados preenchidos.");
+			e.printStackTrace();
 		}
 	}
 

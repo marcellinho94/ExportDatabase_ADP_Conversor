@@ -9,6 +9,7 @@ import java.io.OutputStream;
 import java.lang.reflect.Array;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ResourceBundle;
@@ -20,6 +21,20 @@ import java.util.ResourceBundle;
  *
  */
 public class Utilitario {
+
+	public static void main(String[] args) throws IOException {
+
+		String folder = Utilitario.diretorioLocal() + File.separator + "BASE_AGRUPADA" + File.separator + "funcao.d";
+		File file = new File(folder);
+		byte[] readAllBytes = Files.readAllBytes(file.toPath());
+		String fullFile = new String(readAllBytes);
+
+		String[] textToLines = textToLines(fullFile);
+
+		for (int i = 0; i < textToLines.length; i++) {
+			System.out.println(textToLines[i]);
+		}
+	}
 
 	public static boolean listaVazia(List<?> lista) {
 
@@ -308,7 +323,7 @@ public class Utilitario {
 
 		// Organize the split
 		StringBuilder sb = new StringBuilder();
-		int quoteInitial = 0;
+		int initialQuote = 0;
 		for (int i = 0; i < splitBySpace.length; i++) {
 
 			// text without space
@@ -317,23 +332,23 @@ public class Utilitario {
 				list.add(splitBySpace[i]);
 
 				// open the text
-			} else if (splitBySpace[i].contains("\"") && quoteInitial == 0) {
+			} else if (splitBySpace[i].contains("\"") && initialQuote == 0) {
 
-				quoteInitial = 1;
+				initialQuote = 1;
 				sb.append(splitBySpace[i]);
 				sb.append(" ");
 
 				// close the text
-			} else if (splitBySpace[i].contains("\"") && quoteInitial == 1) {
+			} else if (splitBySpace[i].contains("\"") && initialQuote == 1) {
 
 				sb.append(splitBySpace[i]);
 				list.add(sb.toString());
 
-				quoteInitial = 0;
+				initialQuote = 0;
 				sb = new StringBuilder();
 
 				// middle of the text
-			} else if (quoteInitial == 1) {
+			} else if (initialQuote == 1) {
 
 				sb.append(splitBySpace[i]);
 				sb.append(" ");
@@ -354,6 +369,62 @@ public class Utilitario {
 		return columns;
 	}
 
+	public static String[] textToLines(String fullFile) {
+
+		// Return List
+		List<String> list = new ArrayList<String>();
+
+		String[] splitByBreakLine = fullFile.split("\r\n");
+
+		// Organize the split
+		StringBuilder sb = new StringBuilder();
+		int initialQuote = 0;
+		for (int i = 0; i < splitByBreakLine.length; i++) {
+
+			// text without
+			if (splitByBreakLine[i].chars().filter(ch -> ch == '"').count() > 0
+					&& (splitByBreakLine[i].chars().filter(ch -> ch == '"').count() % 2) == 0) {
+
+				list.add(splitByBreakLine[i]);
+
+				// open the text
+			} else if (splitByBreakLine[i].contains("\"") && initialQuote == 0) {
+
+				initialQuote = 1;
+				sb.append(splitByBreakLine[i]);
+				sb.append(" ");
+
+				// close the text
+			} else if (splitByBreakLine[i].contains("\"") && initialQuote == 1) {
+
+				sb.append(splitByBreakLine[i]);
+				list.add(sb.toString());
+
+				initialQuote = 0;
+				sb = new StringBuilder();
+
+				// middle of the text
+			} else if (initialQuote == 1) {
+
+				sb.append(splitByBreakLine[i]);
+				sb.append(" ");
+
+				// normal without quotes
+			} else {
+
+				list.add(splitByBreakLine[i]);
+			}
+		}
+
+		// List to Array
+		String[] rows = new String[list.size()];
+		for (int i = 0; i < list.size(); i++) {
+			rows[i] = list.get(i);
+		}
+
+		return rows;
+	}
+
 	public static String arrToStr(String[] textLine) {
 
 		StringBuilder sb = new StringBuilder();
@@ -371,5 +442,4 @@ public class Utilitario {
 
 		return sb.toString();
 	}
-
 }

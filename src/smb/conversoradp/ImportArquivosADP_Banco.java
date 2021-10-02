@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.HashMap;
 
 import smb.exception.MsgRetorno;
 import smb.exception.PadraoException;
@@ -12,53 +13,52 @@ import smb.utils.Utilitario;
 
 public class ImportArquivosADP_Banco {
 
-	public static void iterationFiles(ConexaoDiretaBanco con, String folder, Boolean createTable)
-			throws PadraoException {
+	public static void iterationFiles(ConexaoDiretaBanco con, String folder, Boolean createTable) throws PadraoException {
 
 		// Reading the directory
-		File file = new File(folder);
+		File fileFolder = new File(folder);
 
 		// Read all files
-		File[] listFiles = file.listFiles();
+		File[] listFiles = fileFolder.listFiles();
 
-		// Creating table based on 'estrutura' file
+		// Creating tables based on 'estrutura' file
 		if (createTable) {
 
 			// Verifing if exists the 'estrutura' file
 			Boolean havaStructureFile = false;
-			int filePosition = 0;
 			for (int i = 0; i < listFiles.length; i++) {
 
 				String fileName = listFiles[i].getName().replaceAll(".d", "").replaceAll(".txt", "");
 				if (fileName.equalsIgnoreCase("estrutura")) {
 
 					havaStructureFile = true;
-					filePosition = i;
 				}
 			}
 
 			// Error return
 			if (!havaStructureFile) {
-				throw new PadraoException(new MsgRetorno("Não tem o arquivo de estrutura."));
+				throw new PadraoException(new MsgRetorno("Não tem o arquivo de estrutura. Incluir o arquivo de estrutura e executar novamente\n"));
 			}
 
-			createTableScript(listFiles[filePosition]);
+			createTableScript(fileFolder, con);
 		}
 
-		// Iteration by file
+		// Iteration by file - Insert Files
 		for (int i = 0; i < listFiles.length; i++) {
 
-			String fileName = listFiles[i].getName().replaceAll(".d", "").replaceAll(".txt", "");
+			String fileName = removeExtensionFromFileName(listFiles[i].getName());
 
-			System.out.println("\tComeço: " + fileName);
+			System.out.println("\tComeco: " + fileName);
 
-			// Alguns precisam de tratamento especial
-			if (fileName.equalsIgnoreCase("folha")) {
+			// Structure file, not insert
+			if (fileName.equalsIgnoreCase("estrutura")) {
+
+			} else if (fileName.equalsIgnoreCase("folha")) { // file need convert
 
 				// Reading the file
 				convertFolha(listFiles[i], con, fileName);
 
-			} else if (fileName.equalsIgnoreCase("estab-empresa")) {
+			} else if (fileName.equalsIgnoreCase("estab-empresa")) { // file need convert
 
 			} else {
 
@@ -71,49 +71,27 @@ public class ImportArquivosADP_Banco {
 				}
 
 				// Split by rows
-				String[] arrLinhas = fullFile.split("\r\n");
-
-				Integer maxColumnLength = 0;
-				// Iteration - COUNT MAX COLUMN LENGTH
-				for (int j = 0; j < arrLinhas.length; j++) {
-
-					String[] columns = Utilitario.textToColumns(arrLinhas[j]);
-					for (int k = 0; k < columns.length; k++) {
-
-						if (columns[k].length() > maxColumnLength) {
-							maxColumnLength = columns[k].length();
-						}
-					}
-				}
+				String[] arrLinhas = Utilitario.textToLines(fullFile);
 
 				int maxRowsInsert = 0;
 				StringBuilder sb = new StringBuilder();
-				// Iteration - CREATE AND INSERT
+				// Iteration - INSERT
 				for (int j = 0; j < arrLinhas.length; j++) {
 
-					// First row
-					if (j == 0) {
+					if ((j + 1) == arrLinhas.length || maxRowsInsert == 995) {
 
-						String createTableQuery = createTableQuery(arrLinhas[j], fileName, maxColumnLength);
-						con.executaSql(createTableQuery, true);
+						String header = "INSERT INTO \n\t[" + fileName + "]\nVALUES\n";
+						sb.append(insertQuery(arrLinhas[j]));
 
-					} else { // Other rows
+						con.executaSql(header + sb.toString().substring(0, sb.toString().length() - 1), true);
 
-						if ((j + 1) == arrLinhas.length || maxRowsInsert == 995) {
+						maxRowsInsert = 0;
+						sb = new StringBuilder();
 
-							String header = "INSERT INTO \n\t[" + fileName + "]\nVALUES\n";
-							sb.append(insertQuery(arrLinhas[j]));
+					} else {
 
-							con.executaSql(header + sb.toString().substring(0, sb.toString().length() - 1), true);
-
-							maxRowsInsert = 0;
-							sb = new StringBuilder();
-
-						} else {
-
-							sb.append(insertQuery(arrLinhas[j]));
-							maxRowsInsert++;
-						}
+						sb.append(insertQuery(arrLinhas[j]));
+						maxRowsInsert++;
 					}
 				}
 			}
@@ -122,118 +100,112 @@ public class ImportArquivosADP_Banco {
 		}
 	}
 
-	private static void createTableScript(File file) {
-		// TODO Auto-generated method stub
-	}
+	private static void createTableScript(File fileFolder, ConexaoDiretaBanco con) throws PadraoException {
 
-	private static void convertFolha(File folha, ConexaoDiretaBanco con, String fileName) throws PadraoException {
+		HashMap<String, String> rowsFile = new HashMap<String, String>();
 
-		String fullStringFile;
-		try {
-			fullStringFile = new String(Files.readAllBytes(folha.toPath()), StandardCharsets.ISO_8859_1);
-		} catch (IOException e) {
-			throw new PadraoException(new MsgRetorno("Erro ao ler o arquivo: " + fileName));
-		}
+		File[] listFiles = fileFolder.listFiles();
 
-		// Variables
-		StringBuilder sb = new StringBuilder();
-		int maxRowsInsert = 0;
+		// iteration over files - get structure file
+		for (int i = 0; i < listFiles.length; i++) {
 
-		// Split by rows
-		String[] arrRows = fullStringFile.replaceAll(" \\|", "\\|").split("\r\n");
+			if (listFiles[i].getName().toLowerCase().contains("estrutura")) {
 
-		fullStringFile = null;
-
-		// For by rows
-		for (int i = 0; i < arrRows.length; i++) {
-
-			// Header
-			if (i == 0) {
-
-				// TODO
-
-				String createTableQuery = createTableQuery(arrRows[i], fileName, 150);
-				con.executaSql(createTableQuery, true);
-
-			} else { // Rows
-
-				// Split by columns
-				String[] columns = Utilitario.textToColumns(arrRows[i]);
-
-				// count how many rows will be
-				int qtdItens = 0;
-				for (int j = 0; j < columns.length; j++) {
-
-					if (columns[j].contains("|")) {
-
-						// Count |
-						String[] itens = columns[j].split("\\|");
-
-						// Getting the column with more pipes
-						if (itens.length > qtdItens) {
-							qtdItens = itens.length;
-						}
-					}
+				// Reading the file
+				String fullFile;
+				try {
+					fullFile = new String(Files.readAllBytes(listFiles[i].toPath()), StandardCharsets.ISO_8859_1);
+				} catch (IOException e) {
+					throw new PadraoException(new MsgRetorno("Erro ao ler o arquivo: " + listFiles[i].getName()));
 				}
 
-				// If does not exists itens
-				if (qtdItens == 0) {
+				String[] lines = fullFile.split("\r\n");
+				StringBuilder sb = new StringBuilder();
+				int separators = 0;
+				String tableName = null;
 
-					sb.append(insertQuery(columns));
+				for (int j = 0; j < lines.length; j++) {
 
-					// Insert database
-					maxRowsInsert++;
-					if ((i + 1) == arrRows.length || maxRowsInsert == 990) {
+					if (j == 0) {
 
-						String header = "INSERT INTO \n\t[" + fileName + "]\nVALUES\n";
-						con.executaSql(header + sb.toString().substring(0, sb.toString().length() - 1), true);
+						tableName = lines[j];
 
-						maxRowsInsert = 0;
+					} else if (lines[j].toLowerCase().contains("---") && separators == 0) {
+
+						separators++;
+
+					} else if ((lines[j].toLowerCase().contains("---") && separators == 1) || ((j + 1) == lines.length)) {
+
+						rowsFile.put(tableName, sb.toString().trim());
+
 						sb = new StringBuilder();
-					}
+						separators = 0;
 
-				} else {
+					} else if (separators == 1) {
 
-					// Duplicando as linhas, na quantidade de vezes necessarias - de acordo com os
-					// pipes
-					String[] auxColumns = new String[columns.length];
-					for (int j = 0; j < qtdItens; j++) {
+						sb.append(lines[j].substring(0, 33).trim().replace("[", "").replace("]", ""));
+						sb.append(" ");
 
-						// Percorrendo as colunas
-						for (int k = 0; k < columns.length; k++) {
+					} else {
 
-							// Adicionando a coluna ou o item
-							if (columns[k].contains("|")) {
-
-								String[] itens = columns[k].split("\\|");
-
-								if (itens.length > j) {
-									auxColumns[k] = itens[j];
-								}
-
-							} else {
-
-								auxColumns[k] = columns[k];
-							}
-						}
-
-						sb.append(insertQuery(auxColumns));
-						auxColumns = new String[columns.length];
-
-						// Insert database
-						maxRowsInsert++;
-						if ((i + 1) == arrRows.length || maxRowsInsert == 990) {
-
-							String header = "INSERT INTO \n\t[" + fileName + "]\nVALUES\n";
-							con.executaSql(header + sb.toString().substring(0, sb.toString().length() - 1), true);
-
-							maxRowsInsert = 0;
-							sb = new StringBuilder();
-						}
+						tableName = lines[j];
 					}
 				}
 			}
 		}
+
+		// iteration over files
+		for (int i = 0; i < listFiles.length; i++) {
+
+			String fileName = removeExtensionFromFileName(listFiles[i].getName());
+
+			if (!fileName.equalsIgnoreCase("estrutura")) {
+
+				String fullFile;
+				try {
+					fullFile = new String(Files.readAllBytes(listFiles[i].toPath()), StandardCharsets.ISO_8859_1);
+				} catch (IOException e) {
+					throw new PadraoException(new MsgRetorno("Erro ao ler o arquivo: " + listFiles[i].getName()));
+				}
+
+				if (fileName.equalsIgnoreCase("folha")) {
+
+					String createTableQuery = createTableQuery(rowsFile.get(fileName), fileName, 150);
+					con.executaSql(createTableQuery, true);
+
+				} else if (fileName.equalsIgnoreCase("estab-empresa")) {
+
+				} else {
+
+					// Split by rows
+					String[] arrLinhas = Utilitario.textToLines(fullFile);
+
+					Integer maxColumnLength = 0;
+					// Iteration - COUNT MAX COLUMN LENGTH
+					for (int j = 0; j < arrLinhas.length; j++) {
+
+						String[] columns = Utilitario.textToColumns(arrLinhas[j]);
+						for (int k = 0; k < columns.length; k++) {
+
+							if (columns[k].length() > maxColumnLength) {
+								maxColumnLength = columns[k].length();
+							}
+						}
+					}
+
+					System.out.println(fileName);
+
+					// creating query and insert into database
+					String createTableQuery = createTableQuery(rowsFile.get(fileName), fileName, maxColumnLength);
+					con.executaSql(createTableQuery, true);
+				}
+			}
+		}
+	}
+
+	private static String removeExtensionFromFileName(String name) {
+
+		return name.toLowerCase().trim().replace(".d", "").replace(".txt", "");
 	}
 
 	private static String createTableQuery(String row, String fileName, Integer maxColumnLength) {
@@ -258,6 +230,105 @@ public class ImportArquivosADP_Banco {
 		sb.append(");");
 
 		return sb.toString();
+	}
+
+	private static void convertFolha(File folha, ConexaoDiretaBanco con, String fileName) throws PadraoException {
+
+		String fullStringFile;
+		try {
+			fullStringFile = new String(Files.readAllBytes(folha.toPath()), StandardCharsets.ISO_8859_1);
+		} catch (IOException e) {
+			throw new PadraoException(new MsgRetorno("Erro ao ler o arquivo: " + fileName));
+		}
+
+		// Variables
+		StringBuilder sb = new StringBuilder();
+		int maxRowsInsert = 0;
+
+		// Split by rows
+		String[] arrRows = Utilitario.textToLines(fullStringFile.replaceAll(" \\|", "\\|"));
+
+		fullStringFile = null;
+
+		// For by rows
+		for (int i = 0; i < arrRows.length; i++) {
+
+			// Split by columns
+			String[] columns = Utilitario.textToColumns(arrRows[i]);
+
+			// count how many rows will be
+			int qtdItens = 0;
+			for (int j = 0; j < columns.length; j++) {
+
+				if (columns[j].contains("|")) {
+
+					// Count |
+					String[] itens = columns[j].split("\\|");
+
+					// Getting the column with more pipes
+					if (itens.length > qtdItens) {
+						qtdItens = itens.length;
+					}
+				}
+			}
+
+			// If does not exists itens
+			if (qtdItens == 0) {
+
+				sb.append(insertQuery(columns));
+
+				// Insert database
+				maxRowsInsert++;
+				if ((i + 1) == arrRows.length || maxRowsInsert == 990) {
+
+					String header = "INSERT INTO \n\t[" + fileName + "]\nVALUES\n";
+					con.executaSql(header + sb.toString().substring(0, sb.toString().length() - 1), true);
+
+					maxRowsInsert = 0;
+					sb = new StringBuilder();
+				}
+
+			} else {
+
+				// Duplicando as linhas, na quantidade de vezes necessarias - de acordo com os
+				// pipes
+				String[] auxColumns = new String[columns.length];
+				for (int j = 0; j < qtdItens; j++) {
+
+					// Percorrendo as colunas
+					for (int k = 0; k < columns.length; k++) {
+
+						// Adicionando a coluna ou o item
+						if (columns[k].contains("|")) {
+
+							String[] itens = columns[k].split("\\|");
+
+							if (itens.length > j) {
+								auxColumns[k] = itens[j];
+							}
+
+						} else {
+
+							auxColumns[k] = columns[k];
+						}
+					}
+
+					sb.append(insertQuery(auxColumns));
+					auxColumns = new String[columns.length];
+
+					// Insert database
+					maxRowsInsert++;
+					if ((i + 1) == arrRows.length || maxRowsInsert == 990) {
+
+						String header = "INSERT INTO \n\t[" + fileName + "]\nVALUES\n";
+						con.executaSql(header + sb.toString().substring(0, sb.toString().length() - 1), true);
+
+						maxRowsInsert = 0;
+						sb = new StringBuilder();
+					}
+				}
+			}
+		}
 	}
 
 	private static String insertQuery(String row) {
