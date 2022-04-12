@@ -20,8 +20,8 @@ public class Main extends Application {
 
 			Scene scene = new Scene(root);
 
-//			InputStream is = new FileInputStream(Utilitario.diretorioLocal() + ".\\assets\\logo.png");
-			InputStream is = new FileInputStream(Utilitario.diretorioLocal() + "\\src\\assets\\logo.png");
+//			InputStream is = new FileInputStream(Utilitario.diretorioLocal() + ".\\assets\\logo.png"); // ECLIPSE
+			InputStream is = new FileInputStream(Utilitario.diretorioLocal() + "\\src\\assets\\logo.png"); // PROD
 			primaryStage.getIcons().add(new Image(is));
 			primaryStage.setTitle("Conversor arquivos ADP - Consultoria SMB");
 			primaryStage.setResizable(false);

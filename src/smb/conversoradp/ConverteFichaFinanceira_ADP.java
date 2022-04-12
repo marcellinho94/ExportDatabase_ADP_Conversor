@@ -18,7 +18,7 @@ public class ConverteFichaFinanceira_ADP {
 	public static void main(String[] args) {
 
 		try {
-			System.out.print("\n\nInÃ­cio - ");
+			System.out.print("\n\nInício - ");
 			System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss")));
 
 			// Preparando arquivo de retorno
